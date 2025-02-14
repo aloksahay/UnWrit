@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import { TrashIcon } from '@heroicons/react/24/outline'
+import Image from 'next/image'
 
 interface Guide {
   title: string;
@@ -24,6 +25,8 @@ export default function DashboardPage() {
   const [content, setContent] = useState('')
   const [guides, setGuides] = useState<Guide[]>([])
   const [isDeployingAgent, setIsDeployingAgent] = useState(false)
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null)
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false)
 
   useEffect(() => {
     // Check if user is connected
@@ -125,9 +128,16 @@ export default function DashboardPage() {
     if (!confirm('Are you sure you want to delete this guide?')) return
 
     try {
+      const walletAddress = localStorage.getItem('walletAddress')
+      if (!walletAddress) {
+        alert('Wallet not connected')
+        return
+      }
+
       const response = await axios.post('/api/upload', { 
         action: 'delete',
-        fileId 
+        fileId,
+        walletAddress
       })
 
       if (response.data.success) {
@@ -161,6 +171,24 @@ export default function DashboardPage() {
       alert('Failed to deploy guide agent')
     } finally {
       setIsDeployingAgent(false)
+    }
+  }
+
+  const generateImage = async () => {
+    try {
+      setIsGeneratingImage(true)
+      const response = await axios.post('/api/generate-image', {
+        prompt: content // Use the guide content as the prompt
+      })
+      
+      if (response.data.images && response.data.images.length > 0) {
+        setGeneratedImage(response.data.images[0])
+      }
+    } catch (error) {
+      console.error('Failed to generate image:', error)
+      alert('Failed to generate image')
+    } finally {
+      setIsGeneratingImage(false)
     }
   }
 
@@ -246,6 +274,16 @@ export default function DashboardPage() {
                   className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
                 >
                   {isSubmitting ? 'Creating Preview...' : 'Create Preview'}
+                </button>
+                <button
+                  type="button"
+                  onClick={generateImage}
+                  disabled={isGeneratingImage || !content}
+                  className="mt-2 w-full px-4 py-2 bg-green-600 text-white rounded-md 
+                    hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 
+                    focus:ring-green-500 disabled:opacity-50"
+                >
+                  {isGeneratingImage ? 'Generating Image...' : 'Generate Image'}
                 </button>
               </form>
             </div>
@@ -335,6 +373,20 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
+
+            {generatedImage && (
+              <div className="mt-4">
+                <h3 className="text-lg font-medium mb-2">Generated Image</h3>
+                <div className="relative w-full aspect-square">
+                  <Image
+                    src={`data:image/png;base64,${generatedImage}`}
+                    alt="Generated image"
+                    fill
+                    className="rounded-lg object-cover"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

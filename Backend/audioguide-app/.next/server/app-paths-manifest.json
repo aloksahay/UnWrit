@@ -1,6 +1,8 @@
 {
-  "/api/upload/route": "app/api/upload/route.js",
-  "/api/guides/route": "app/api/guides/route.js",
   "/dashboard/page": "app/dashboard/page.js",
-  "/favicon.ico/route": "app/favicon.ico/route.js"
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/api/guides/route": "app/api/guides/route.js",
+  "/api/upload/route": "app/api/upload/route.js",
+  "/visit/page": "app/visit/page.js",
+  "/api/guides/list/route": "app/api/guides/list/route.js"
 }
