@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [guides, setGuides] = useState<Guide[]>([])
+  const [isDeployingAgent, setIsDeployingAgent] = useState(false)
 
   useEffect(() => {
     // Check if user is connected
@@ -32,8 +33,23 @@ export default function DashboardPage() {
       return
     }
     setWalletAddress(address)
-    setIsLoading(false)
+    
+    // Fetch existing guides
+    fetchExistingGuides()
   }, [router])
+
+  const fetchExistingGuides = async () => {
+    try {
+      const response = await axios.get('/api/guides')
+      if (response.data.guides) {
+        setGuides(response.data.guides)
+      }
+    } catch (error) {
+      console.error('Failed to fetch existing guides:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const uploadToIPFS = async (content: string) => {
     try {
@@ -101,6 +117,30 @@ export default function DashboardPage() {
     } catch (error) {
       console.error('Failed to delete guide:', error)
       alert('Failed to delete guide')
+    }
+  }
+
+  const deployGuideAgent = async () => {
+    if (guides.length === 0) {
+      alert('Please create at least one guide before deploying an agent')
+      return
+    }
+
+    try {
+      setIsDeployingAgent(true)
+
+      const response = await axios.post('/api/deploy-agent', { guides })
+
+      if (response.data.success) {
+        alert('Guide Agent deployed successfully!')
+      } else {
+        throw new Error(response.data.error || 'Failed to deploy agent')
+      }
+    } catch (error) {
+      console.error('Failed to deploy guide agent:', error)
+      alert('Failed to deploy guide agent')
+    } finally {
+      setIsDeployingAgent(false)
     }
   }
 
@@ -191,9 +231,30 @@ export default function DashboardPage() {
             </div>
 
             <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                Your Guide Previews
-              </h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Your Guide Previews
+                </h2>
+                <button
+                  onClick={deployGuideAgent}
+                  disabled={isDeployingAgent || guides.length === 0}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 
+                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 
+                    disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                >
+                  {isDeployingAgent ? (
+                    <>
+                      <span className="animate-spin">⚡</span>
+                      <span>Deploying Agent...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>🤖</span>
+                      <span>Deploy Guide Agent</span>
+                    </>
+                  )}
+                </button>
+              </div>
               {guides.length === 0 ? (
                 <div className="text-gray-600 dark:text-gray-400 text-center py-8">
                   No guide previews created yet
@@ -241,7 +302,7 @@ export default function DashboardPage() {
                         <div className="absolute top-3 right-3">
                           <button
                             onClick={() => guide.fileId && handleDelete(guide.fileId, index)}
-                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors border-2 border-gray-200 dark:border-gray-600 hover:border-red-200 dark:hover:border-red-800"
                             disabled={!guide.fileId}
                             title="Delete Guide"
                           >
