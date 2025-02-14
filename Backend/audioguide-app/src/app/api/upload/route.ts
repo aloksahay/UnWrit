@@ -29,40 +29,40 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const agent = initAgent()
-    const { content, action, fileId } = await request.json()
-
-    // Initialize storage with DaVinci namespace
-    await agent.setupStorage('DaVinci')
-
-    if (action === 'delete' && fileId) {
-      const result = await agent.delete(BigInt(fileId))
-      return NextResponse.json({ 
-        success: true, 
-        result: {
-          hash: result.hash,
-          fileId: result.fileId.toString(),
-          portalAddress: result.portalAddress
-        }
-      })
+    const { content, action, fileId, walletAddress } = await request.json()
+    if (!walletAddress) {
+      return NextResponse.json(
+        { error: 'Wallet address required' },
+        { status: 400 }
+      )
     }
 
-    // Create file using Fileverse agent
-    const file = await agent.create(content)
-    console.log('File created:', file)
+    const agent = initAgent()
+    await agent.setupStorage(`DaVinci-${walletAddress}`, {
+      owner: walletAddress,
+      isPublic: false
+    })
 
-    // Get the file content after creation
-    const fileContent = await agent.getFile(file.fileId)
-    console.log('File content:', fileContent)
+    if (action === 'delete' && fileId) {
+      await agent.delete(BigInt(fileId))
+      return NextResponse.json({ success: true })
+    }
+
+    // Create new file
+    const file = await agent.create(content)
+    console.log('Created file:', file)
+
+    // Verify the file was created
+    const verifyFile = await agent.getFile(file.fileId)
+    console.log('Verified file:', verifyFile)
 
     return NextResponse.json({ 
-      hash: file.hash,
       fileId: file.fileId.toString(),
-      content: fileContent?.content || content,
-      portalAddress: file.portalAddress
+      content: verifyFile?.content || content,
+      owner: walletAddress
     })
   } catch (error) {
-    console.error('Failed to upload using Fileverse:', error)
+    console.error('Failed to upload:', error)
     return NextResponse.json(
       { error: 'Failed to upload content' },
       { status: 500 }

@@ -1,1 +1,6 @@
-{}
+{
+  "/api/upload/route": "app/api/upload/route.js",
+  "/api/guides/route": "app/api/guides/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js"
+}

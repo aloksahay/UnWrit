@@ -123,8 +123,8 @@ module.exports = mod;
 "[project]/src/app/api/upload/route.ts [app-route] (ecmascript)": ((__turbopack_context__) => {
 "use strict";
 
-var { r: __turbopack_require__, f: __turbopack_module_context__, i: __turbopack_import__, s: __turbopack_esm__, v: __turbopack_export_value__, n: __turbopack_export_namespace__, c: __turbopack_cache__, M: __turbopack_modules__, l: __turbopack_load__, j: __turbopack_dynamic__, P: __turbopack_resolve_absolute_path__, U: __turbopack_relative_url__, R: __turbopack_resolve_module_id_path__, b: __turbopack_worker_blob_url__, g: global, __dirname, a: __turbopack_async_module__, x: __turbopack_external_require__, y: __turbopack_external_import__, z: __turbopack_require_stub__ } = __turbopack_context__;
-__turbopack_async_module__(async (__turbopack_handle_async_dependencies__, __turbopack_async_result__) => { try {
+var { r: __turbopack_require__, f: __turbopack_module_context__, i: __turbopack_import__, s: __turbopack_esm__, v: __turbopack_export_value__, n: __turbopack_export_namespace__, c: __turbopack_cache__, M: __turbopack_modules__, l: __turbopack_load__, j: __turbopack_dynamic__, P: __turbopack_resolve_absolute_path__, U: __turbopack_relative_url__, R: __turbopack_resolve_module_id_path__, b: __turbopack_worker_blob_url__, g: global, __dirname, x: __turbopack_external_require__, y: __turbopack_external_import__, z: __turbopack_require_stub__ } = __turbopack_context__;
+{
 __turbopack_esm__({
     "GET": (()=>GET),
     "POST": (()=>POST)
@@ -133,19 +133,20 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$serv
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$fileverse$2f$agents$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_import__("[project]/node_modules/@fileverse/agents/index.js [app-route] (ecmascript)");
 ;
 ;
-// Initialize the Fileverse agent with server-side env vars
-const agent = new __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$fileverse$2f$agents$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["Agent"]({
-    chain: process.env.CHAIN || 'gnosis',
-    privateKey: process.env.PRIVATE_KEY,
-    pinataJWT: process.env.PINATA_JWT,
-    pinataGateway: process.env.PINATA_GATEWAY,
-    pimlicoAPIKey: process.env.PIMLICO_API_KEY
-});
-// Initialize storage with DaVinci namespace
-await agent.setupStorage('DaVinci');
+// Initialize the Fileverse agent
+const initAgent = ()=>{
+    return new __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$fileverse$2f$agents$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["Agent"]({
+        chain: process.env.CHAIN || 'gnosis',
+        privateKey: process.env.PRIVATE_KEY || '',
+        pinataJWT: process.env.PINATA_JWT || '',
+        pinataGateway: process.env.PINATA_GATEWAY || '',
+        pimlicoAPIKey: process.env.PIMLICO_API_KEY || ''
+    });
+};
 async function GET() {
     try {
-        // Get all files from the DaVinci folder
+        const agent = initAgent();
+        await agent.setupStorage('DaVinci');
         const files = await agent.listFiles();
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
             files
@@ -161,34 +162,38 @@ async function GET() {
 }
 async function POST(request) {
     try {
-        const { content, action, fileId } = await request.json();
-        // Initialize storage with DaVinci namespace
-        await agent.setupStorage('DaVinci');
-        if (action === 'delete' && fileId) {
-            const result = await agent.delete(BigInt(fileId));
+        const { content, action, fileId, walletAddress } = await request.json();
+        if (!walletAddress) {
             return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-                success: true,
-                result: {
-                    hash: result.hash,
-                    fileId: result.fileId.toString(),
-                    portalAddress: result.portalAddress
-                }
+                error: 'Wallet address required'
+            }, {
+                status: 400
             });
         }
-        // Create file using Fileverse agent
+        const agent = initAgent();
+        await agent.setupStorage(`DaVinci-${walletAddress}`, {
+            owner: walletAddress,
+            isPublic: false
+        });
+        if (action === 'delete' && fileId) {
+            await agent.delete(BigInt(fileId));
+            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                success: true
+            });
+        }
+        // Create new file
         const file = await agent.create(content);
-        console.log('File created:', file);
-        // Get the file content after creation
-        const fileContent = await agent.getFile(file.fileId);
-        console.log('File content:', fileContent);
+        console.log('Created file:', file);
+        // Verify the file was created
+        const verifyFile = await agent.getFile(file.fileId);
+        console.log('Verified file:', verifyFile);
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-            hash: file.hash,
             fileId: file.fileId.toString(),
-            content: fileContent?.content || content,
-            portalAddress: file.portalAddress
+            content: verifyFile?.content || content,
+            owner: walletAddress
         });
     } catch (error) {
-        console.error('Failed to upload using Fileverse:', error);
+        console.error('Failed to upload:', error);
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
             error: 'Failed to upload content'
         }, {
@@ -196,8 +201,7 @@ async function POST(request) {
         });
     }
 }
-__turbopack_async_result__();
-} catch(e) { __turbopack_async_result__(e); } }, true);}),
+}}),
 "[project]/ (server-utils)": ((__turbopack_context__) => {
 
 var { r: __turbopack_require__, f: __turbopack_module_context__, i: __turbopack_import__, s: __turbopack_esm__, v: __turbopack_export_value__, n: __turbopack_export_namespace__, c: __turbopack_cache__, M: __turbopack_modules__, l: __turbopack_load__, j: __turbopack_dynamic__, P: __turbopack_resolve_absolute_path__, U: __turbopack_relative_url__, R: __turbopack_resolve_module_id_path__, b: __turbopack_worker_blob_url__, g: global, __dirname, t: __turbopack_require_real__ } = __turbopack_context__;

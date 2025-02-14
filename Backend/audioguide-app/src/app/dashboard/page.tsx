@@ -38,14 +38,39 @@ export default function DashboardPage() {
     fetchExistingGuides()
   }, [router])
 
+  useEffect(() => {
+    if (walletAddress) {
+      fetchExistingGuides()
+    }
+  }, [walletAddress])
+
   const fetchExistingGuides = async () => {
     try {
-      const response = await axios.get('/api/guides')
+      const address = localStorage.getItem('walletAddress')
+      if (!address) return
+
+      console.log('Fetching guides for address:', address)
+      const response = await axios.get(`/api/guides?wallet=${address}`, {
+        timeout: 30000 // 30 second timeout
+      })
+
+      console.log('Guides response:', response.data)
       if (response.data.guides) {
         setGuides(response.data.guides)
       }
-    } catch (error) {
-      console.error('Failed to fetch existing guides:', error)
+    } catch (error: any) {
+      console.error('Failed to fetch guides:', error)
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        console.error('Response data:', error.response.data)
+        console.error('Response status:', error.response.status)
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('No response received:', error.request)
+      } else {
+        // Something happened in setting up the request
+        console.error('Error setting up request:', error.message)
+      }
     } finally {
       setIsLoading(false)
     }
@@ -53,12 +78,17 @@ export default function DashboardPage() {
 
   const uploadToIPFS = async (content: string) => {
     try {
-      const response = await axios.post('/api/upload', { content })
+      const walletAddress = localStorage.getItem('walletAddress')
+      if (!walletAddress) throw new Error('No wallet connected')
+
+      const response = await axios.post('/api/upload', { 
+        content,
+        walletAddress 
+      })
       return {
-        hash: response.data.hash,
         fileId: response.data.fileId,
         content: response.data.content,
-        portalAddress: response.data.portalAddress
+        owner: response.data.owner
       }
     } catch (error) {
       console.error('Failed to upload to IPFS:', error)
@@ -72,24 +102,14 @@ export default function DashboardPage() {
 
     try {
       setIsSubmitting(true)
-
-      // Create markdown content
       const markdownContent = `# ${title}\n\n${content}`
       
-      // Upload using Fileverse
-      const { hash, fileId, content: storedContent, portalAddress } = await uploadToIPFS(markdownContent)
-      console.log('File uploaded to Fileverse:', { hash, fileId, portalAddress })
+      const { fileId } = await uploadToIPFS(markdownContent)
+      console.log('File uploaded:', { fileId })
 
-      const newGuide = {
-        title,
-        content,
-        createdAt: new Date().toISOString(),
-        hash,
-        fileId,
-        portalAddress,
-        storedContent
-      }
-      setGuides(prev => [newGuide, ...prev])
+      // After successful upload, fetch all guides again
+      await fetchExistingGuides()
+      
       setTitle('')
       setContent('')
       alert('Guide preview created and stored successfully!')
