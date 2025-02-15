@@ -133,6 +133,8 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$serv
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$fileverse$2f$agents$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_import__("[project]/node_modules/@fileverse/agents/index.js [app-route] (ecmascript)");
 ;
 ;
+// In-memory store for guides
+let guides = [];
 const initAgent = ()=>{
     return new __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$fileverse$2f$agents$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["Agent"]({
         chain: 'sepolia',
@@ -150,21 +152,37 @@ async function POST(request) {
         // Handle deletion
         if (action === 'delete' && fileId) {
             await agent.delete(BigInt(fileId));
+            guides = guides.filter((g)=>g.fileId !== fileId);
             return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
                 success: true
             });
         }
         // Create new file
+        console.log('Creating file with content:', content.slice(0, 100));
         const file = await agent.create(content);
-        console.log('Created file:', file);
-        // Get the file to verify and return content
-        const verifyFile = await agent.getFile(file.fileId);
-        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+        console.log('Created file:', {
             fileId: file.fileId.toString(),
-            content: verifyFile?.content || content,
+            contentIpfsHash: file.contentIpfsHash
+        });
+        // Get the file to verify
+        const verifyFile = await agent.getFile(file.fileId);
+        console.log('Retrieved file:', {
+            fileId: file.fileId.toString(),
+            contentIpfsHash: verifyFile?.contentIpfsHash,
+            portal: verifyFile?.portal,
+            namespace: verifyFile?.namespace
+        });
+        // Add to our local store
+        const newGuide = {
+            fileId: file.fileId.toString(),
+            content: content,
+            ipfsHash: verifyFile?.contentIpfsHash || '',
             creator: walletAddress,
             timestamp: new Date().toISOString()
-        });
+        };
+        guides.push(newGuide);
+        console.log('Added to local store. Total guides:', guides.length);
+        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json(newGuide);
     } catch (error) {
         console.error('Failed to upload:', error);
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
@@ -176,30 +194,23 @@ async function POST(request) {
 }
 async function GET() {
     try {
-        const agent = initAgent();
-        await agent.setupStorage('Unwrit');
-        // Scan first 20 files
-        const guides = [];
-        for(let i = 0n; i < 20n; i++){
-            try {
-                const file = await agent.getFile(i);
-                if (file?.content) {
-                    const titleMatch = file.content.match(/^# (.*)/m);
-                    const title = titleMatch ? titleMatch[1] : 'Untitled Guide';
-                    const mainContent = file.content.replace(/^# .*\n/, '').trim();
-                    guides.push({
-                        fileId: i.toString(),
-                        title,
-                        content: mainContent,
-                        hash: file.contentIpfsHash
-                    });
-                }
-            } catch  {
-            // Skip non-existent files
-            }
-        }
+        // Return guides from our local store
+        const formattedGuides = guides.map((guide)=>{
+            const titleMatch = guide.content.match(/^# (.*)/m);
+            const title = titleMatch ? titleMatch[1] : 'Untitled Guide';
+            const mainContent = guide.content.replace(/^# .*\n/, '').trim();
+            return {
+                fileId: guide.fileId,
+                title,
+                content: mainContent,
+                ipfsHash: guide.ipfsHash,
+                createdAt: guide.timestamp,
+                creator: guide.creator
+            };
+        });
+        console.log(`Returning ${formattedGuides.length} guides from local store`);
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-            guides
+            guides: formattedGuides
         });
     } catch (error) {
         console.error('Failed to fetch guides:', error);

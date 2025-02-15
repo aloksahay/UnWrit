@@ -1,5 +1,16 @@
 import { NextResponse } from 'next/server'
 import { Agent } from '@fileverse/agents'
+import { addGuide } from '../guides/route'
+
+// In-memory store for guides
+let guides: Array<{
+  fileId: string;
+  title: string;
+  content: string;
+  ipfsHash: string;
+  creator: string;
+  timestamp: string;
+}> = []
 
 const initAgent = () => {
   return new Agent({ 
@@ -14,6 +25,7 @@ const initAgent = () => {
 export async function POST(request: Request) {
   try {
     const { content, action, fileId, walletAddress } = await request.json()
+    console.log('POST /api/upload - Received content:', content)
     
     const agent = initAgent()
     await agent.setupStorage('Unwrit')
@@ -26,17 +38,27 @@ export async function POST(request: Request) {
 
     // Create new file
     const file = await agent.create(content)
-    console.log('Created file:', file)
-
-    // Get the file to verify and return content
-    const verifyFile = await agent.getFile(file.fileId)
+    console.log('File created:', file)
     
-    return NextResponse.json({ 
+    // Get title from content
+    const titleMatch = content.match(/^# (.*)/m)
+    const title = titleMatch ? titleMatch[1] : 'Untitled Guide'
+    const mainContent = content.replace(/^# .*\n/, '').trim()
+
+    // Create guide object
+    const guide = {
       fileId: file.fileId.toString(),
-      content: verifyFile?.content || content,
+      title,
+      content: mainContent,
+      ipfsHash: file.contentIpfsHash || '',
       creator: walletAddress,
       timestamp: new Date().toISOString()
-    })
+    }
+
+    console.log('Adding guide to memory:', guide)
+    addGuide(guide)
+
+    return NextResponse.json(guide)
   } catch (error) {
     console.error('Failed to upload:', error)
     return NextResponse.json({ error: 'Failed to upload content' }, { status: 500 })
@@ -45,32 +67,24 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
-    const agent = initAgent()
-    await agent.setupStorage('Unwrit')
+    // Return guides from our local store
+    const formattedGuides = guides.map(guide => {
+      const titleMatch = guide.content.match(/^# (.*)/m)
+      const title = titleMatch ? titleMatch[1] : 'Untitled Guide'
+      const mainContent = guide.content.replace(/^# .*\n/, '').trim()
 
-    // Scan first 20 files
-    const guides = []
-    for (let i = 0n; i < 20n; i++) {
-      try {
-        const file = await agent.getFile(i)
-        if (file?.content) {
-          const titleMatch = file.content.match(/^# (.*)/m)
-          const title = titleMatch ? titleMatch[1] : 'Untitled Guide'
-          const mainContent = file.content.replace(/^# .*\n/, '').trim()
-
-          guides.push({
-            fileId: i.toString(),
-            title,
-            content: mainContent,
-            hash: file.contentIpfsHash
-          })
-        }
-      } catch {
-        // Skip non-existent files
+      return {
+        fileId: guide.fileId,
+        title,
+        content: mainContent,
+        ipfsHash: guide.ipfsHash,
+        createdAt: guide.timestamp,
+        creator: guide.creator
       }
-    }
+    })
 
-    return NextResponse.json({ guides })
+    console.log(`Returning ${formattedGuides.length} guides from local store`)
+    return NextResponse.json({ guides: formattedGuides })
   } catch (error) {
     console.error('Failed to fetch guides:', error)
     return NextResponse.json({ guides: [] })
