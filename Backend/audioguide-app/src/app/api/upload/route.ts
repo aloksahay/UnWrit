@@ -1,48 +1,24 @@
 import { NextResponse } from 'next/server'
 import { Agent } from '@fileverse/agents'
 
-// Initialize the Fileverse agent
 const initAgent = () => {
   return new Agent({ 
-    chain: process.env.CHAIN || 'gnosis',
-    privateKey: process.env.PRIVATE_KEY || '',
-    pinataJWT: process.env.PINATA_JWT || '',
-    pinataGateway: process.env.PINATA_GATEWAY || '',
-    pimlicoAPIKey: process.env.PIMLICO_API_KEY || '',
+    chain: 'sepolia',
+    privateKey: process.env.PRIVATE_KEY!,
+    pinataJWT: process.env.PINATA_JWT!,
+    pinataGateway: process.env.PINATA_GATEWAY!,
+    pimlicoAPIKey: process.env.PIMLICO_API_KEY!,
   })
-}
-
-export async function GET() {
-  try {
-    const agent = initAgent()
-    await agent.setupStorage('DaVinci')
-    const files = await agent.listFiles()
-    return NextResponse.json({ files })
-  } catch (error) {
-    console.error('Failed to fetch files:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch files' },
-      { status: 500 }
-    )
-  }
 }
 
 export async function POST(request: Request) {
   try {
     const { content, action, fileId, walletAddress } = await request.json()
-    if (!walletAddress) {
-      return NextResponse.json(
-        { error: 'Wallet address required' },
-        { status: 400 }
-      )
-    }
-
+    
     const agent = initAgent()
-    await agent.setupStorage(`DaVinci-${walletAddress}`, {
-      owner: walletAddress,
-      isPublic: false
-    })
+    await agent.setupStorage('Unwrit')
 
+    // Handle deletion
     if (action === 'delete' && fileId) {
       await agent.delete(BigInt(fileId))
       return NextResponse.json({ success: true })
@@ -52,20 +28,51 @@ export async function POST(request: Request) {
     const file = await agent.create(content)
     console.log('Created file:', file)
 
-    // Verify the file was created
+    // Get the file to verify and return content
     const verifyFile = await agent.getFile(file.fileId)
-    console.log('Verified file:', verifyFile)
-
+    
     return NextResponse.json({ 
       fileId: file.fileId.toString(),
       content: verifyFile?.content || content,
-      owner: walletAddress
+      creator: walletAddress,
+      timestamp: new Date().toISOString()
     })
   } catch (error) {
     console.error('Failed to upload:', error)
-    return NextResponse.json(
-      { error: 'Failed to upload content' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Failed to upload content' }, { status: 500 })
+  }
+}
+
+export async function GET() {
+  try {
+    const agent = initAgent()
+    await agent.setupStorage('Unwrit')
+
+    // Scan first 20 files
+    const guides = []
+    for (let i = 0n; i < 20n; i++) {
+      try {
+        const file = await agent.getFile(i)
+        if (file?.content) {
+          const titleMatch = file.content.match(/^# (.*)/m)
+          const title = titleMatch ? titleMatch[1] : 'Untitled Guide'
+          const mainContent = file.content.replace(/^# .*\n/, '').trim()
+
+          guides.push({
+            fileId: i.toString(),
+            title,
+            content: mainContent,
+            hash: file.contentIpfsHash
+          })
+        }
+      } catch {
+        // Skip non-existent files
+      }
+    }
+
+    return NextResponse.json({ guides })
+  } catch (error) {
+    console.error('Failed to fetch guides:', error)
+    return NextResponse.json({ guides: [] })
   }
 } 

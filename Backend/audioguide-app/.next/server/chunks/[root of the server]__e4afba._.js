@@ -133,48 +133,21 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$serv
 var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$fileverse$2f$agents$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__ = __turbopack_import__("[project]/node_modules/@fileverse/agents/index.js [app-route] (ecmascript)");
 ;
 ;
-// Initialize the Fileverse agent
 const initAgent = ()=>{
     return new __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f40$fileverse$2f$agents$2f$index$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["Agent"]({
-        chain: process.env.CHAIN || 'gnosis',
-        privateKey: process.env.PRIVATE_KEY || '',
-        pinataJWT: process.env.PINATA_JWT || '',
-        pinataGateway: process.env.PINATA_GATEWAY || '',
-        pimlicoAPIKey: process.env.PIMLICO_API_KEY || ''
+        chain: 'sepolia',
+        privateKey: process.env.PRIVATE_KEY,
+        pinataJWT: process.env.PINATA_JWT,
+        pinataGateway: process.env.PINATA_GATEWAY,
+        pimlicoAPIKey: process.env.PIMLICO_API_KEY
     });
 };
-async function GET() {
-    try {
-        const agent = initAgent();
-        await agent.setupStorage('DaVinci');
-        const files = await agent.listFiles();
-        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-            files
-        });
-    } catch (error) {
-        console.error('Failed to fetch files:', error);
-        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-            error: 'Failed to fetch files'
-        }, {
-            status: 500
-        });
-    }
-}
 async function POST(request) {
     try {
         const { content, action, fileId, walletAddress } = await request.json();
-        if (!walletAddress) {
-            return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
-                error: 'Wallet address required'
-            }, {
-                status: 400
-            });
-        }
         const agent = initAgent();
-        await agent.setupStorage(`DaVinci-${walletAddress}`, {
-            owner: walletAddress,
-            isPublic: false
-        });
+        await agent.setupStorage('Unwrit');
+        // Handle deletion
         if (action === 'delete' && fileId) {
             await agent.delete(BigInt(fileId));
             return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
@@ -184,13 +157,13 @@ async function POST(request) {
         // Create new file
         const file = await agent.create(content);
         console.log('Created file:', file);
-        // Verify the file was created
+        // Get the file to verify and return content
         const verifyFile = await agent.getFile(file.fileId);
-        console.log('Verified file:', verifyFile);
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
             fileId: file.fileId.toString(),
             content: verifyFile?.content || content,
-            owner: walletAddress
+            creator: walletAddress,
+            timestamp: new Date().toISOString()
         });
     } catch (error) {
         console.error('Failed to upload:', error);
@@ -198,6 +171,40 @@ async function POST(request) {
             error: 'Failed to upload content'
         }, {
             status: 500
+        });
+    }
+}
+async function GET() {
+    try {
+        const agent = initAgent();
+        await agent.setupStorage('Unwrit');
+        // Scan first 20 files
+        const guides = [];
+        for(let i = 0n; i < 20n; i++){
+            try {
+                const file = await agent.getFile(i);
+                if (file?.content) {
+                    const titleMatch = file.content.match(/^# (.*)/m);
+                    const title = titleMatch ? titleMatch[1] : 'Untitled Guide';
+                    const mainContent = file.content.replace(/^# .*\n/, '').trim();
+                    guides.push({
+                        fileId: i.toString(),
+                        title,
+                        content: mainContent,
+                        hash: file.contentIpfsHash
+                    });
+                }
+            } catch  {
+            // Skip non-existent files
+            }
+        }
+        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+            guides
+        });
+    } catch (error) {
+        console.error('Failed to fetch guides:', error);
+        return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
+            guides: []
         });
     }
 }

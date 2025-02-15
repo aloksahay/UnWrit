@@ -7,13 +7,12 @@ import { TrashIcon } from '@heroicons/react/24/outline'
 import Image from 'next/image'
 
 interface Guide {
+  fileId: string;
   title: string;
   content: string;
-  createdAt: string;
-  hash?: string;
-  fileId?: string;
-  portalAddress?: string;
-  storedContent?: string;
+  ipfsHash: string;
+  creator: string;
+  timestamp: string;
 }
 
 export default function DashboardPage() {
@@ -49,31 +48,11 @@ export default function DashboardPage() {
 
   const fetchExistingGuides = async () => {
     try {
-      const address = localStorage.getItem('walletAddress')
-      if (!address) return
-
-      console.log('Fetching guides for address:', address)
-      const response = await axios.get(`/api/guides?wallet=${address}`, {
-        timeout: 30000 // 30 second timeout
-      })
-
-      console.log('Guides response:', response.data)
-      if (response.data.guides) {
-        setGuides(response.data.guides)
-      }
-    } catch (error: any) {
+      // Get guides from localStorage
+      const guides = JSON.parse(localStorage.getItem('guides') || '[]')
+      setGuides(guides)
+    } catch (error) {
       console.error('Failed to fetch guides:', error)
-      if (error.response) {
-        // The request was made and the server responded with a status code
-        console.error('Response data:', error.response.data)
-        console.error('Response status:', error.response.status)
-      } else if (error.request) {
-        // The request was made but no response was received
-        console.error('No response received:', error.request)
-      } else {
-        // Something happened in setting up the request
-        console.error('Error setting up request:', error.message)
-      }
     } finally {
       setIsLoading(false)
     }
@@ -88,11 +67,13 @@ export default function DashboardPage() {
         content,
         walletAddress 
       })
-      return {
-        fileId: response.data.fileId,
-        content: response.data.content,
-        owner: response.data.owner
-      }
+
+      // Save guide to localStorage
+      const guides = JSON.parse(localStorage.getItem('guides') || '[]')
+      guides.push(response.data)
+      localStorage.setItem('guides', JSON.stringify(guides))
+
+      return response.data
     } catch (error) {
       console.error('Failed to upload to IPFS:', error)
       throw new Error('Failed to upload to IPFS')
@@ -141,6 +122,11 @@ export default function DashboardPage() {
       })
 
       if (response.data.success) {
+        // Remove from localStorage
+        const guides = JSON.parse(localStorage.getItem('guides') || '[]')
+        const updatedGuides = guides.filter((g: Guide) => g.fileId !== fileId)
+        localStorage.setItem('guides', JSON.stringify(updatedGuides))
+        
         setGuides(prev => prev.filter((_, i) => i !== index))
         alert('Guide deleted successfully!')
       }
@@ -332,31 +318,13 @@ export default function DashboardPage() {
                       </p>
                       <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
                         <div className="flex justify-between items-center">
-                          <span>Created: {new Date(guide.createdAt).toLocaleDateString()}</span>
-                          {guide.hash && (
+                          <span>Created: {new Date(guide.timestamp).toLocaleDateString()}</span>
+                          {guide.ipfsHash && (
                             <span className="text-indigo-600 dark:text-indigo-400">
-                              Hash: {guide.hash.slice(0, 6)}...{guide.hash.slice(-4)}
+                              Hash: {guide.ipfsHash.slice(0, 6)}...{guide.ipfsHash.slice(-4)}
                             </span>
                           )}
                         </div>
-                        {guide.fileId && (
-                          <div className="flex justify-between items-center">
-                            <span>File ID: {guide.fileId}</span>
-                            {guide.portalAddress && (
-                              <span className="text-indigo-600 dark:text-indigo-400">
-                                Portal: {guide.portalAddress.slice(0, 6)}...{guide.portalAddress.slice(-4)}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        {guide.storedContent && (
-                          <div className="mt-2 p-2 bg-gray-100 dark:bg-gray-600 rounded">
-                            <div className="text-xs font-medium mb-1">Stored Content:</div>
-                            <pre className="text-xs whitespace-pre-wrap">
-                              {guide.storedContent}
-                            </pre>
-                          </div>
-                        )}
                         <div className="absolute top-3 right-3">
                           <button
                             onClick={() => guide.fileId && handleDelete(guide.fileId, index)}
