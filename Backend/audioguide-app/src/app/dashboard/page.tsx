@@ -23,9 +23,6 @@ export default function DashboardPage() {
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [guides, setGuides] = useState<Guide[]>([])
-  const [isDeployingAgent, setIsDeployingAgent] = useState(false)
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null)
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false)
 
   useEffect(() => {
     // Check if user is connected
@@ -136,48 +133,6 @@ export default function DashboardPage() {
     }
   }
 
-  const deployGuideAgent = async () => {
-    if (guides.length === 0) {
-      alert('Please create at least one guide before deploying an agent')
-      return
-    }
-
-    try {
-      setIsDeployingAgent(true)
-
-      const response = await axios.post('/api/deploy-agent', { guides })
-
-      if (response.data.success) {
-        alert('Guide Agent deployed successfully!')
-      } else {
-        throw new Error(response.data.error || 'Failed to deploy agent')
-      }
-    } catch (error) {
-      console.error('Failed to deploy guide agent:', error)
-      alert('Failed to deploy guide agent')
-    } finally {
-      setIsDeployingAgent(false)
-    }
-  }
-
-  const generateImage = async () => {
-    try {
-      setIsGeneratingImage(true)
-      const response = await axios.post('/api/generate-image', {
-        prompt: content // Use the guide content as the prompt
-      })
-      
-      if (response.data.images && response.data.images.length > 0) {
-        setGeneratedImage(response.data.images[0])
-      }
-    } catch (error) {
-      console.error('Failed to generate image:', error)
-      alert('Failed to generate image')
-    } finally {
-      setIsGeneratingImage(false)
-    }
-  }
-
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900">
@@ -226,7 +181,7 @@ export default function DashboardPage() {
           <div className="space-y-8">
             <div>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                Preview Guide Content
+                Upload Guide
               </h2>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -259,49 +214,18 @@ export default function DashboardPage() {
                   disabled={isSubmitting}
                   className="w-full px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
                 >
-                  {isSubmitting ? 'Creating Preview...' : 'Create Preview'}
-                </button>
-                <button
-                  type="button"
-                  onClick={generateImage}
-                  disabled={isGeneratingImage || !content}
-                  className="mt-2 w-full px-4 py-2 bg-green-600 text-white rounded-md 
-                    hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 
-                    focus:ring-green-500 disabled:opacity-50"
-                >
-                  {isGeneratingImage ? 'Generating Image...' : 'Generate Image'}
+                  {isSubmitting ? 'Uploading...' : 'Upload Guide'}
                 </button>
               </form>
             </div>
 
             <div>
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Your Guide Previews
-                </h2>
-                <button
-                  onClick={deployGuideAgent}
-                  disabled={isDeployingAgent || guides.length === 0}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 
-                    focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 
-                    disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-                >
-                  {isDeployingAgent ? (
-                    <>
-                      <span className="animate-spin">⚡</span>
-                      <span>Deploying Agent...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>🤖</span>
-                      <span>Deploy Guide Agent</span>
-                    </>
-                  )}
-                </button>
-              </div>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                Your Guides
+              </h2>
               {guides.length === 0 ? (
                 <div className="text-gray-600 dark:text-gray-400 text-center py-8">
-                  No guide previews created yet
+                  No guides created yet
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -341,20 +265,6 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
-
-            {generatedImage && (
-              <div className="mt-4">
-                <h3 className="text-lg font-medium mb-2">Generated Image</h3>
-                <div className="relative w-full aspect-square">
-                  <Image
-                    src={`data:image/png;base64,${generatedImage}`}
-                    alt="Generated image"
-                    fill
-                    className="rounded-lg object-cover"
-                  />
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
