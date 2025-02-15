@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
+import ChatWithGuide from '@/components/ChatWithGuide'
 
 interface Guide {
   fileId: string;
@@ -82,16 +83,16 @@ export default function VisitPage() {
     if (selectedGuide && lang !== 'en') {
       setIsTranslating(true);
       try {
-        const response = await axios.post('/api/process-guide', {
+        const response = await axios.post('/api/translate', {
           content: selectedGuide.content,
           language: lang
         });
         
-        if (response.data.translatedContent) {
+        if (response.data.translatedText) {
           setSegments([{
             title: selectedGuide.title,
             content: selectedGuide.content,
-            translatedContent: response.data.translatedContent
+            translatedContent: response.data.translatedText
           }]);
         }
       } catch (error) {
@@ -252,59 +253,65 @@ export default function VisitPage() {
               )}
             </div>
 
-            {selectedGuide && selectedLanguage && (
+            {selectedGuide && (
               <div className="mt-8">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                  {selectedGuide.title}
-                </h2>
-                
-                {isTranslating || isSegmenting ? (
-                  <div className="text-center py-4">
-                    {isTranslating ? 'Translating...' : 'Organizing content...'}
-                  </div>
-                ) : segments.length > 0 ? (
-                  <div className="space-y-8">
-                    {segments.map((segment, index) => (
-                      <div key={index} className="bg-white dark:bg-gray-700 rounded-lg p-6 shadow-sm">
-                        <div className="flex items-center mb-4">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                              {selectedLanguage === 'en' ? segment.title : segment.translatedTitle || segment.title}
-                            </h3>
-                            {!segment.isTranslating && (
-                              <button
-                                onClick={() => handlePlayAudio(segment, index)}
-                                className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200 ${
-                                  audioPlaying === index 
-                                    ? 'bg-red-500 hover:bg-red-600' 
-                                    : 'bg-indigo-500 hover:bg-indigo-600'
-                                }`}
-                                title={audioPlaying === index ? 'Pause' : 'Play'}
-                              >
-                                {audioPlaying === index ? (
-                                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                                  </svg>
-                                ) : (
-                                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                                  </svg>
-                                )}
-                              </button>
-                            )}
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                    {selectedGuide.title}
+                  </h2>
+                  
+                  {isTranslating ? (
+                    <div className="text-center py-4">
+                      Translating...
+                    </div>
+                  ) : segments.length > 0 ? (
+                    <div className="space-y-8">
+                      {segments.map((segment, index) => (
+                        <div key={index} className="bg-white dark:bg-gray-700 rounded-lg p-6 shadow-sm">
+                          <div className="flex items-center mb-4">
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                                {selectedLanguage === 'en' ? segment.title : segment.translatedTitle || segment.title}
+                              </h3>
+                              {!segment.isTranslating && (
+                                <button
+                                  onClick={() => handlePlayAudio(segment, index)}
+                                  className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200 ${
+                                    audioPlaying === index 
+                                      ? 'bg-red-500 hover:bg-red-600' 
+                                      : 'bg-indigo-500 hover:bg-indigo-600'
+                                  }`}
+                                  title={audioPlaying === index ? 'Pause' : 'Play'}
+                                >
+                                  {audioPlaying === index ? (
+                                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                                    </svg>
+                                  ) : (
+                                    <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                                    </svg>
+                                  )}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                          <div className="prose dark:prose-invert">
+                            {selectedLanguage === 'en' ? segment.content : segment.translatedContent || segment.content}
                           </div>
                         </div>
-                        <div className="prose dark:prose-invert">
-                          {selectedLanguage === 'en' ? segment.content : segment.translatedContent || segment.content}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="prose dark:prose-invert">
-                    {selectedGuide.content}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="prose dark:prose-invert">
+                      {selectedGuide.content}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-2">
+                  <ChatWithGuide />
+                </div>
               </div>
             )}
           </div>

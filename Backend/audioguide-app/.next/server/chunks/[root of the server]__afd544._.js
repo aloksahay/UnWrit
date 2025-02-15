@@ -141,7 +141,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$openai$2f$in
 ;
 ;
 const venice = new __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$openai$2f$index$2e$mjs__$5b$app$2d$route$5d$__$28$ecmascript$29$__$3c$locals$3e$__["default"]({
-    apiKey: process.env.VENICE_API_KEY || '',
+    apiKey: process.env.VENICE_API_KEY,
     baseURL: "https://api.venice.ai/api/v1"
 });
 async function POST(request) {
@@ -153,34 +153,31 @@ async function POST(request) {
             messages: [
                 {
                     role: "system",
-                    content: `Translate the following text to ${language === 'fr' ? 'French' : language === 'es' ? 'Spanish' : 'English'}`
+                    content: `You are a professional translator. Your task is to translate text to ${language === 'fr' ? 'French' : language === 'es' ? 'Spanish' : 'English'}. Return only the translated text without any formatting or JSON structure.`
                 },
                 {
                     role: "user",
                     content
                 }
             ],
-            temperature: 0.7
+            temperature: 0.3,
+            venice_parameters: {
+                include_venice_system_prompt: false
+            }
         });
-        // Log the full response to see its structure
-        console.log('Venice response:', JSON.stringify(response, null, 2));
-        // Parse the response which might be a string
+        // Parse the response if it's a string
         const parsedResponse = typeof response === 'string' ? JSON.parse(response) : response;
-        // Get the translated text from the parsed response
-        const translatedText = parsedResponse?.choices?.[0]?.message?.content;
+        const translatedText = parsedResponse.choices?.[0]?.message?.content;
         if (!translatedText) {
-            console.error('No translation in response:', parsedResponse);
-            throw new Error('No translation generated');
+            console.error('No translation in response');
+            throw new Error('Translation failed');
         }
+        console.log('Translation successful');
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
             translatedText
         });
     } catch (error) {
-        console.error('Failed to translate:', error);
-        if (error instanceof __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$openai$2f$index$2e$mjs__$5b$app$2d$route$5d$__$28$ecmascript$29$__$3c$locals$3e$__["default"].APIError) {
-            console.error('Status:', error.status);
-            console.error('Message:', error.message);
-        }
+        console.error('Translation failed:', error);
         return __TURBOPACK__imported__module__$5b$project$5d2f$node_modules$2f$next$2f$server$2e$js__$5b$app$2d$route$5d$__$28$ecmascript$29$__["NextResponse"].json({
             error: 'Failed to translate content'
         }, {
