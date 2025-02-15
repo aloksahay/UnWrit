@@ -2,6 +2,7 @@
   "/visit/page": "app/visit/page.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/api/guides/list/route": "app/api/guides/list/route.js",
-  "/api/image/generate/route": "app/api/image/generate/route.js",
-  "/api/translate/route": "app/api/translate/route.js"
+  "/api/segment/route": "app/api/segment/route.js",
+  "/api/process-guide/route": "app/api/process-guide/route.js",
+  "/api/text-to-speech/route": "app/api/text-to-speech/route.js"
 }
